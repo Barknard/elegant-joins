@@ -225,14 +225,7 @@ async function dragFrom(page: Page, x: number, y: number, dx: number, dy: number
 
 async function placeNode(page: Page, node: Locator, x: number, y: number) {
   const handle = node.locator("[data-node-drag-handle]");
-  for (let attempt = 0; attempt < 16; attempt++) {
-    // Every few attempts, re-fit the view first: on rare occasions the drag ends up
-    // panning the canvas instead of moving the node, which no amount of further
-    // dragging from a wrong starting assumption corrects — a fresh fit-view
-    // re-establishes a sane camera to retry from.
-    if (attempt > 0 && attempt % 4 === 0) {
-      await page.locator(".react-flow__controls-fitview").click();
-    }
+  for (let attempt = 0; attempt < 4; attempt++) {
     const box = (await handle.boundingBox())!;
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
