@@ -12,9 +12,11 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  // Importing and joining real files on a React Flow canvas is genuinely slow at a
-  // phone viewport; 30s is tight enough that healthy runs intermittently trip it.
-  timeout: 60_000,
+  // Importing and joining real files on a React Flow canvas is genuinely slow at a phone
+  // viewport, and a shared CI runner is slower again — 60s there produced timeouts on
+  // work that passes locally. This is runner speed, not a defect, so give CI the room
+  // rather than dropping the coverage or leaving a permanently-red step nobody reads.
+  timeout: process.env.CI ? 150_000 : 60_000,
   retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
