@@ -35,6 +35,18 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: End-to-end tests
         run: npx playwright test --project=chromium
+
+      # Separate project: builds with the real /elegant-joins/ base and serves it at
+      # that sub-path. The root-served suite cannot catch base-path bugs — the first
+      # deploy showed a 404 to every visitor while all other tests passed.
+      - name: Deployed-path smoke tests
+        run: npx playwright test --project=pages-base
+
+      # Serial on purpose: importing and joining real files on a React Flow canvas at a
+      # 390px viewport is slow enough that parallel workers starve each other into
+      # timing flakes which pass individually.
+      - name: Phone-viewport tests
+        run: npx playwright test --project=mobile --workers=1
       - name: Upload Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@v4

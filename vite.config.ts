@@ -26,7 +26,10 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname, "client"),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist"),
+    // Overridable so the root-served and Pages-base builds can run concurrently during
+    // the e2e run. Sharing one directory means whichever finishes last wins and the
+    // other server quietly serves a bundle built for a different base path.
+    outDir: path.resolve(import.meta.dirname, process.env.VITE_OUT ?? "dist"),
     emptyOutDir: true,
     // The xlsx and flow libraries are large; splitting them keeps the initial parse
     // small so the canvas paints before the spreadsheet reader is even needed.

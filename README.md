@@ -35,9 +35,21 @@ npm run dev          # http://localhost:5173
 ```bash
 npm run check        # TypeScript
 npm run test:unit    # 85 unit tests: join engine, parsing, storage, SQL export
-npm run test:e2e     # 33 Playwright tests against a production build
-npm test             # both
+npm run test:e2e        # Playwright: desktop + the deployed /elegant-joins/ path
+npm run test:e2e:mobile # 390px touch viewport (serial — see below)
+npm test                # unit + e2e
 ```
+
+The mobile project runs with `--workers=1` deliberately. Importing and joining real
+files on a React Flow canvas at a phone viewport is slow enough that parallel workers
+starve each other into timing flakes which pass individually — the failures move around
+between runs, which is worse than useless. Serially it is 33/33 and stable.
+
+The `pages-base` Playwright project is worth keeping. It builds with the real
+`/elegant-joins/` base and serves it at that sub-path, because the other projects serve
+from the root and therefore *cannot* catch base-path bugs. The first deploy of this app
+showed a 404 screen to every visitor while every other test passed — the client-side
+router had no base and never matched `/elegant-joins/`.
 
 ## How it's put together
 

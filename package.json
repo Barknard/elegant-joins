@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "type": "module",
   "license": "MIT",
-  "description": "Visual data studio for CSV and Excel files — joins tables in your browser, offline.",
+  "description": "Visual data studio for CSV and Excel files \u2014 joins tables in your browser, offline.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,9 +11,11 @@
     "e2e:serve": "cross-env VITE_BASE=root vite build && cross-env VITE_BASE=root vite preview --port 4173 --strictPort --host 127.0.0.1",
     "check": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test",
-    "test": "vitest run && playwright test",
-    "fonts": "python tools/fetch-fonts.py"
+    "test:e2e": "playwright test --project=chromium --project=pages-base",
+    "test": "vitest run && npm run test:e2e",
+    "fonts": "python tools/fetch-fonts.py",
+    "e2e:serve:pages": "cross-env VITE_OUT=dist-pages vite build && node tools/stage-pages-preview.mjs dist-pages && http-server .pages-preview -p 4174 -a 127.0.0.1 --silent",
+    "test:e2e:mobile": "playwright test --project=mobile --workers=1"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -88,6 +90,7 @@
     "tailwindcss": "^4.1.14",
     "typescript": "5.6.3",
     "vite": "^7.3.1",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "http-server": "^14.1.1"
   }
 }

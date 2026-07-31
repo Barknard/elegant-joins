@@ -149,7 +149,16 @@ async function tapToggle(page: Page, toggleTestId: string, revealTestId: string)
   const toggle = page.getByTestId(toggleTestId);
 
   await toggle.click();
-  if (await reveal.isVisible().catch(() => false)) return;
+
+  // Wait properly rather than checking visibility immediately: these panels animate in,
+  // so an instant check races the transition and reports "not open" for a panel that is
+  // opening — and the second tap would then toggle it straight back closed.
+  try {
+    await reveal.waitFor({ state: "visible", timeout: 2500 });
+    return;
+  } catch {
+    // Genuinely still collapsed (the touch two-step reveal): tap again.
+  }
 
   await toggle.click();
   await expect(reveal).toBeVisible({ timeout: 10000 });

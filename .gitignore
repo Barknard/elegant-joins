@@ -15,3 +15,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Pages base-path preview staging
+.pages-preview/
+dist-pages/

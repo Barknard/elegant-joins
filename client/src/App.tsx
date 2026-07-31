@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -9,12 +9,22 @@ import Home from "@/pages/Home";
 import NotFound from "@/pages/not-found";
 import { useState, useEffect } from "react";
 
+/**
+ * GitHub Pages serves this app from /elegant-joins/, so the router needs that prefix or
+ * `path="/"` never matches and every visitor gets the 404 screen — which is exactly what
+ * the first deploy did. `BASE_URL` is "/elegant-joins/" in a Pages build and "/" in dev;
+ * wouter wants it without the trailing slash, and an empty string at the root.
+ */
+const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
-    </Switch>
+    <WouterRouter base={routerBase}>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route component={NotFound} />
+      </Switch>
+    </WouterRouter>
   );
 }
 
