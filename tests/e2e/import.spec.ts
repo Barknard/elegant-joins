@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { fixture, importFile, openApp } from "./helpers";
+import { fixture, importFile, openAddSource, openApp } from "./helpers";
 
 test.describe("File import — real parsing", () => {
   test("reads the actual columns and rows out of a CSV", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("customers.csv"));
 
     await expect(page.getByTestId("preview-columns")).toBeVisible();
@@ -17,7 +17,7 @@ test.describe("File import — real parsing", () => {
 
   test("infers a type per column, including booleans", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("customers.csv"));
 
     await expect(page.getByTestId("preview-column-customer_id")).toContainText("number");
@@ -29,7 +29,7 @@ test.describe("File import — real parsing", () => {
 
   test("shows real values from the file, not placeholders", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("customers.csv"));
 
     const rows = page.getByTestId("preview-rows");
@@ -40,7 +40,7 @@ test.describe("File import — real parsing", () => {
 
   test("reads an Excel workbook", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("products.xlsx"));
 
     await expect(page.getByTestId("preview-column-product")).toBeVisible();
@@ -49,7 +49,7 @@ test.describe("File import — real parsing", () => {
 
   test("says which Excel sheets it did NOT import", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("products.xlsx"));
 
     // Previously the server read SheetNames[0] and mentioned nothing.
@@ -61,7 +61,7 @@ test.describe("File import — real parsing", () => {
 
   test("keeps a column that is blank in the first row", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("sparse.xlsx"));
 
     // Reading Object.keys(rows[0]) used to drop this column entirely.
@@ -70,7 +70,7 @@ test.describe("File import — real parsing", () => {
 
   test("handles quoted commas, escaped quotes and multi-line cells", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("messy.csv"));
 
     const rows = page.getByTestId("preview-rows");
@@ -80,7 +80,7 @@ test.describe("File import — real parsing", () => {
 
   test("preserves zero-padded codes as text rather than numbers", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("messy.csv"));
 
     await expect(page.getByTestId("preview-rows")).toContainText("007");
@@ -88,7 +88,7 @@ test.describe("File import — real parsing", () => {
 
   test("refuses an unsupported file with a clear message", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     // package.json is definitely not a spreadsheet.
     await page.getByTestId("file-upload-input").setInputFiles(fixture("../../package.json"));
 
@@ -116,7 +116,7 @@ test.describe("File import — real parsing", () => {
 
   test("back returns to the upload step without adding anything", async ({ page }) => {
     await openApp(page);
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("customers.csv"));
     await expect(page.getByTestId("preview-columns")).toBeVisible();
 
@@ -132,7 +132,7 @@ test.describe("Smart scan", () => {
     await openApp(page);
     await importFile(page, "customers.csv");
 
-    await page.getByTestId("button-add-source").click();
+    await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("products.xlsx"));
     await expect(page.getByTestId("preview-columns")).toBeVisible();
     await page.getByTestId("button-smart-scan").click();

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { importFile, openApp, openProjectDialog, projectRow, saveProject } from "./helpers";
+import { importFile, openApp, openJoinPreview, openProjectDialog, openViewBuilder, projectRow, saveProject } from "./helpers";
 
 /** Canvas with customers.csv + products.xlsx joined on customer_id. */
 async function twoJoinedTables(page: import("@playwright/test").Page) {
@@ -12,7 +12,7 @@ async function twoJoinedTables(page: import("@playwright/test").Page) {
 test.describe("Join preview", () => {
   test("joins real data across a CSV and an Excel file", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-join-preview").click();
+    await openJoinPreview(page);
 
     // The CSV's customer_id is a string, the workbook's is a number. The old `===`
     // comparison matched nothing here and reported it as an empty result.
@@ -23,7 +23,7 @@ test.describe("Join preview", () => {
 
   test("shows its work: the ordered join steps", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-join-preview").click();
+    await openJoinPreview(page);
 
     const steps = page.getByTestId("preview-steps");
     await expect(steps).toBeVisible();
@@ -33,7 +33,7 @@ test.describe("Join preview", () => {
 
   test("shows only values that exist in the files — never invented ones", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-join-preview").click();
+    await openJoinPreview(page);
     await expect(page.getByTestId("preview-row-count")).toBeVisible();
 
     // The old panel fabricated rows from column-name heuristics whenever it felt data
@@ -49,7 +49,7 @@ test.describe("Join preview", () => {
 
   test("panel opens and closes", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-join-preview").click();
+    await openJoinPreview(page);
     await expect(page.getByTestId("preview-row-count")).toBeVisible();
     await page.getByTestId("button-close-preview").click();
     await expect(page.getByTestId("preview-row-count")).toBeHidden();
@@ -67,7 +67,7 @@ test.describe("Join preview", () => {
 test.describe("View builder", () => {
   test("Run produces rows from the real data", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-view-builder").click();
+    await openViewBuilder(page);
     await page.getByTestId("button-run-preview").click();
 
     await expect(page.getByTestId("output-row-count")).toBeVisible();
@@ -77,7 +77,7 @@ test.describe("View builder", () => {
 
   test("field selection actually changes the output columns", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-view-builder").click();
+    await openViewBuilder(page);
 
     const checkboxes = page.locator('[id^="field-"]');
     const total = await checkboxes.count();
@@ -94,7 +94,7 @@ test.describe("View builder", () => {
 
   test("exports a real CSV file", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-view-builder").click();
+    await openViewBuilder(page);
     await page.getByTestId("button-run-preview").click();
     await page.getByRole("tab", { name: "Export" }).click();
 
@@ -106,7 +106,7 @@ test.describe("View builder", () => {
 
   test("exports a real Excel file — not just a toast", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-view-builder").click();
+    await openViewBuilder(page);
     await page.getByTestId("button-run-preview").click();
     await page.getByRole("tab", { name: "Export" }).click();
 
@@ -119,7 +119,7 @@ test.describe("View builder", () => {
 
   test("export buttons stay disabled until a run has happened", async ({ page }) => {
     await twoJoinedTables(page);
-    await page.getByTestId("button-open-view-builder").click();
+    await openViewBuilder(page);
     await page.getByRole("tab", { name: "Export" }).click();
     await expect(page.getByTestId("button-export-csv")).toBeDisabled();
     await expect(page.getByTestId("button-export-excel")).toBeDisabled();
@@ -163,7 +163,7 @@ test.describe("Projects persist in the browser", () => {
 
     // The real assertion: rawData survived the save/load round-trip. If it hadn't, the
     // canvas would still look right but the join would produce nothing.
-    await page.getByTestId("button-open-join-preview").click();
+    await openJoinPreview(page);
     await expect(page.getByTestId("preview-row-count")).toBeVisible();
     await expect(page.getByText("Analytical Engine")).toBeVisible();
   });

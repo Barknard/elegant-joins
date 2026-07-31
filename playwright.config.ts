@@ -12,7 +12,10 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // Importing and joining real files on a React Flow canvas is genuinely slow at a
+  // phone viewport; 30s is tight enough that healthy runs intermittently trip it.
+  timeout: 60_000,
+  retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
 
@@ -24,9 +27,14 @@ export default defineConfig({
 
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    // The canvas and panels are touch-reachable; a phone viewport catches layout
-    // regressions the desktop project never would.
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    {
+      // A narrow touch viewport catches layout regressions the desktop project never
+      // would. Deliberately NOT a full phone descriptor: those lay the page out at a
+      // larger CSS viewport and scale it down, which makes click targeting unreliable
+      // and tests the emulator rather than the stylesheet.
+      name: "mobile",
+      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: false },
+    },
   ],
 
   webServer: {

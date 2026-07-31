@@ -68,7 +68,7 @@ export async function startWithSampleData(page: Page) {
 export async function importFile(page: Page, fileName: string, opts: { smartScan?: boolean } = {}) {
   const before = await page.locator(".react-flow__node").count();
 
-  await page.getByTestId("button-add-source").click();
+  await openAddSource(page);
   await page.getByTestId("file-upload-input").setInputFiles(fixture(fileName));
 
   // The parse is real now, so wait for the preview rather than a fixed delay.
@@ -84,20 +84,91 @@ export async function importFile(page: Page, fileName: string, opts: { smartScan
   await expect(page.locator(".react-flow__node")).toHaveCount(before + 1, { timeout: 15000 });
 }
 
+/**
+ * Opens the Add Data dialog.
+ *
+ * The floating canvas button is collapsed on touch devices and expands on first tap,
+ * so a single click opens the dialog on desktop but only reveals the button on a phone.
+ * Clicking again when the dialog hasn't appeared covers both.
+ */
+export async function openAddSource(page: Page) {
+  // The file input itself is permanently `class="hidden"` (a button triggers it), so
+  // the dialog's own visible control is the signal that it actually opened.
+  const dialogOpen = page.getByTestId("button-csv-upload");
+
+  await page.getByTestId("button-add-source").click();
+  await dialogOpen.waitFor({ state: "visible", timeout: 2000 }).catch(async () => {
+    await page.getByTestId("button-add-source").click();
+    await dialogOpen.waitFor({ state: "visible", timeout: 8000 });
+  });
+}
+
+/**
+ * Triggers a top-bar action.
+ *
+ * The bar collapses into the hamburger menu on narrow screens, so the visible control
+ * differs by viewport. Prefer the bar button; fall back to the menu item.
+ */
+export async function topBarAction(page: Page, label: string, menuTestId: string) {
+  const barButton = page.getByRole("button", { name: label, exact: true });
+  if (await barButton.isVisible().catch(() => false)) {
+    await barButton.click();
+    return;
+  }
+  await page.getByTestId("hamburger-button").click();
+  await page.getByTestId(menuTestId).click();
+}
+
 /** Saves the current canvas as a named project and waits for confirmation. */
 export async function saveProject(page: Page, name: string) {
-  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await topBarAction(page, "Save", "menu-save-project");
   const input = page.getByTestId("project-name-input");
   await expect(input).toBeVisible();
   await input.fill(name);
   await page.getByTestId("confirm-save-project").click();
-  await expect(page.getByText("Project Saved")).toBeVisible({ timeout: 15000 });
+  // The toast renders its title AND a screen-reader announcement containing the same
+  // words, so an unscoped text match is ambiguous under strict mode. Take the first.
+  await expect(page.getByText("Project Saved").first()).toBeVisible({ timeout: 15000 });
 }
 
 /** Opens the project list. */
 export async function openProjectDialog(page: Page) {
-  await page.getByRole("button", { name: "Open", exact: true }).click();
+  await topBarAction(page, "Open", "menu-open-project");
   await expect(page.getByTestId("search-projects")).toBeVisible();
+}
+
+/**
+ * Taps a floating canvas toggle until the thing it opens appears.
+ *
+ * On touch devices these buttons use a two-step reveal: the first tap expands the
+ * collapsed pill to show its label, and only the second tap performs the action. One
+ * click is therefore enough on desktop and a no-op on a phone.
+ */
+async function tapToggle(page: Page, toggleTestId: string, revealTestId: string) {
+  const reveal = page.getByTestId(revealTestId);
+  const toggle = page.getByTestId(toggleTestId);
+
+  await toggle.click();
+  if (await reveal.isVisible().catch(() => false)) return;
+
+  await toggle.click();
+  await expect(reveal).toBeVisible({ timeout: 10000 });
+}
+
+/** Opens the View Builder panel, via the hamburger menu when the toggle is collapsed. */
+export async function openViewBuilder(page: Page) {
+  if (await page.getByTestId("button-open-view-builder").isVisible().catch(() => false)) {
+    await tapToggle(page, "button-open-view-builder", "button-run-preview");
+    return;
+  }
+  await page.getByTestId("hamburger-button").click();
+  await page.getByTestId("menu-view-builder").click();
+  await expect(page.getByTestId("button-run-preview")).toBeVisible({ timeout: 10000 });
+}
+
+/** Opens the join preview panel. */
+export async function openJoinPreview(page: Page) {
+  await tapToggle(page, "button-open-join-preview", "preview-row-count");
 }
 
 /**
