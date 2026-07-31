@@ -1,0 +1,7 @@
+customer_id,name,email,city,signup_date,active
+1,Ada Lovelace,ada@example.com,London,2024-01-15,true
+2,Grace Hopper,grace@example.com,New York,2024-02-03,true
+3,Katherine Johnson,katherine@example.com,Hampton,2024-02-19,false
+4,Annie Easley,annie@example.com,Cleveland,2024-03-07,true
+5,Dorothy Vaughan,dorothy@example.com,Hampton,2024-03-22,true
+6,Mary Jackson,mary@example.com,Hampton,2024-04-01,false

@@ -1,0 +1,550 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import '@xyflow/react/dist/style.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+}
+
+/* Custom Glassmorphism & Animation Utilities */
+@layer utilities {
+  .glass {
+    @apply bg-white/80 dark:bg-black/40 backdrop-blur-xl border border-white/20 dark:border-white/10;
+  }
+  
+  .glass-card {
+    @apply bg-white/50 dark:bg-zinc-900/60 backdrop-blur-md border border-zinc-200/50 dark:border-white/10 shadow-xl;
+  }
+
+  .glass-panel {
+    @apply bg-slate-50/90 dark:bg-zinc-950/80 backdrop-blur-2xl border-r border-zinc-200 dark:border-zinc-800;
+  }
+
+  .animate-in-fade {
+    animation: fadeIn 0.4s ease-out forwards;
+  }
+  
+  .animate-in-slide-up {
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Custom scrollbar - thin and auto-hiding */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s ease;
+  }
+  
+  .scrollbar-thin:hover {
+    scrollbar-color: rgba(139, 92, 246, 0.4) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 3px;
+    transition: background 0.3s ease;
+  }
+  
+  .scrollbar-thin:hover::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.4);
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.6);
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:active {
+    background: rgba(139, 92, 246, 0.8);
+  }
+  
+  /* Touch scroll utilities for mobile */
+  .touch-pan-x {
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .touch-pan-y {
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .touch-pan-x.touch-pan-y {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* React Flow nodrag class - allows scrolling inside nodes on mobile */
+  .nodrag {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
+:root {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+
+  /* Brand Gradient: Blue to Purple */
+  --primary: 250 80% 55%; /* Vivid Indigo/Purple */
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222 47% 11.2%;
+
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215 16% 47%;
+
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222 47% 11.2%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 250 80% 55%;
+
+  --radius: 0.75rem;
+
+  --sidebar: 0 0% 98%;
+  --sidebar-foreground: 240 5.3% 26.1%;
+  --sidebar-primary: 240 5.9% 10%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 240 4.8% 95.9%;
+  --sidebar-accent-foreground: 240 5.9% 10%;
+  --sidebar-border: 220 13% 91%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+.dark {
+  --background: 222 47% 5%; /* Very dark blue-grey */
+  --foreground: 210 40% 98%;
+
+  --card: 222 47% 6%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222 47% 6%;
+  --popover-foreground: 210 40% 98%;
+
+  --primary: 250 80% 65%; /* Lighter Indigo/Purple for dark mode */
+  --primary-foreground: 222 47% 11.2%;
+
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 250 80% 65%;
+
+  --sidebar: 240 5.9% 10%;
+  --sidebar-foreground: 240 4.8% 95.9%;
+  --sidebar-primary: 224.3 76.3% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 3.7% 15.9%;
+  --sidebar-accent-foreground: 240 4.8% 95.9%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground selection:bg-primary/20 selection:text-primary;
+  }
+}
+
+/* Interactive Element Styles - Ensures all clickable items have hover feedback */
+@layer utilities {
+  /* Clickable card/tile hover effect */
+  .interactive-card {
+    @apply transition-all duration-150 cursor-pointer;
+    @apply hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:shadow-md;
+    @apply active:scale-[0.98] active:shadow-sm;
+  }
+
+  /* Clickable list item hover effect */
+  .interactive-list-item {
+    @apply transition-all duration-100 cursor-pointer;
+    @apply hover:bg-zinc-100 dark:hover:bg-zinc-800;
+    @apply active:bg-zinc-200 dark:active:bg-zinc-700;
+  }
+
+  /* Icon button hover effect */
+  .interactive-icon {
+    @apply transition-all duration-100 cursor-pointer rounded;
+    @apply hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:scale-110;
+    @apply active:scale-95 active:bg-zinc-300 dark:active:bg-zinc-600;
+  }
+
+  /* Subtle hover for inline elements */
+  .interactive-subtle {
+    @apply transition-colors duration-100 cursor-pointer;
+    @apply hover:text-primary hover:opacity-80;
+    @apply active:opacity-60;
+  }
+}
+
+/* ==================== ELEGANT JOINS CUSTOM CURSOR SYSTEM ==================== */
+/* Modern, semi-transparent cursors unique to Elegant Joins */
+
+:root {
+  /* Elegant Joins link/connect cursor - Venn diagram with shaded intersection (representing join/merge) */
+  --cursor-link: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3CclipPath id='leftClip'%3E%3Ccircle cx='14' cy='12' r='7'/%3E%3C/clipPath%3E%3C/defs%3E%3Ccircle cx='9' cy='12' r='7' fill='%23dbeafe' fill-opacity='0.7' stroke='%233b82f6' stroke-width='1.5'/%3E%3Ccircle cx='14' cy='12' r='7' fill='%23fce7f3' fill-opacity='0.7' stroke='%23ec4899' stroke-width='1.5'/%3E%3Cellipse cx='11.5' cy='12' rx='3' ry='5.5' fill='%238b5cf6' fill-opacity='0.85'/%3E%3C/svg%3E") 12 12, crosshair;
+  
+  /* Elegant Joins table grab cursor - open hand with subtle table hint */
+  --cursor-grab: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M11 4a1.5 1.5 0 0 1 3 0v5h1V6a1.5 1.5 0 0 1 3 0v6h1V8a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7h-2a7 7 0 0 1-7-7v-4a1.5 1.5 0 0 1 3 0v2h1V4z' fill='%23a1a1aa' fill-opacity='0.85' stroke='white' stroke-width='0.75'/%3E%3Crect x='2' y='18' width='6' height='4' rx='0.5' fill='%236366f1' fill-opacity='0.6'/%3E%3C/svg%3E") 10 10, grab;
+  
+  /* Elegant Joins grabbing cursor - closed hand */
+  --cursor-grabbing: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M8 10c0-1 .5-2 1.5-2S11 9 11 10v1h1v-1c0-1 .5-2 1.5-2s1.5 1 1.5 2v1h1v-1c0-1 .5-2 1.5-2S19 9 19 10v6a6 6 0 0 1-6 6h-2a6 6 0 0 1-6-6v-3c0-1 .5-2 1.5-2S8 12 8 13v-3z' fill='%238b5cf6' fill-opacity='0.9' stroke='white' stroke-width='0.75'/%3E%3C/svg%3E") 10 10, grabbing;
+  
+  /* Elegant Joins pan cursor - classic database cylinder icon (represents data navigation) */
+  --cursor-pan: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cellipse cx='12' cy='6' rx='8' ry='3' fill='%23dbeafe' fill-opacity='0.8' stroke='%236366f1' stroke-width='1.25'/%3E%3Cpath d='M4 6v12c0 1.66 3.58 3 8 3s8-1.34 8-3V6' fill='%23dbeafe' fill-opacity='0.6' stroke='%236366f1' stroke-width='1.25'/%3E%3Cellipse cx='12' cy='12' rx='8' ry='3' fill='none' stroke='%236366f1' stroke-width='0.75' stroke-opacity='0.5'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%238b5cf6' fill-opacity='0.7'/%3E%3C/svg%3E") 12 12, move;
+  
+  /* Elegant Joins zoom in cursor - modern magnifier */
+  --cursor-zoom-in: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='9' cy='9' r='6' fill='%23f4f4f5' fill-opacity='0.7' stroke='%236366f1' stroke-width='1.5'/%3E%3Cline x1='13.5' y1='13.5' x2='19' y2='19' stroke='%236366f1' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='9' y1='6' x2='9' y2='12' stroke='%2310b981' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='6' y1='9' x2='12' y2='9' stroke='%2310b981' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 9 9, zoom-in;
+  
+  /* Elegant Joins zoom out cursor */
+  --cursor-zoom-out: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Ccircle cx='9' cy='9' r='6' fill='%23f4f4f5' fill-opacity='0.7' stroke='%236366f1' stroke-width='1.5'/%3E%3Cline x1='13.5' y1='13.5' x2='19' y2='19' stroke='%236366f1' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='6' y1='9' x2='12' y2='9' stroke='%23ef4444' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 9 9, zoom-out;
+  
+  /* Elegant Joins copy cursor */
+  --cursor-copy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Crect x='6' y='6' width='10' height='10' rx='1.5' fill='%23f4f4f5' fill-opacity='0.8' stroke='%236366f1' stroke-width='1.25'/%3E%3Crect x='3' y='3' width='10' height='10' rx='1.5' fill='%23f4f4f5' fill-opacity='0.9' stroke='%2371717a' stroke-width='1.25'/%3E%3C/svg%3E") 10 10, copy;
+  
+  /* Elegant Joins delete cursor */
+  --cursor-delete: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Crect x='4' y='6' width='12' height='11' rx='1' fill='%23fef2f2' fill-opacity='0.9' stroke='%23ef4444' stroke-width='1.25'/%3E%3Crect x='3' y='3' width='14' height='3' rx='1' fill='%23ef4444' fill-opacity='0.85'/%3E%3Cline x1='7' y1='9' x2='7' y2='14' stroke='%23ef4444' stroke-width='1' stroke-linecap='round'/%3E%3Cline x1='10' y1='9' x2='10' y2='14' stroke='%23ef4444' stroke-width='1' stroke-linecap='round'/%3E%3Cline x1='13' y1='9' x2='13' y2='14' stroke='%23ef4444' stroke-width='1' stroke-linecap='round'/%3E%3C/svg%3E") 10 10, pointer;
+  
+  /* Elegant Joins edit cursor - modern pencil */
+  --cursor-edit: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M3 14.5V17h2.5L14 8.5 11.5 6 3 14.5z' fill='%23f4f4f5' fill-opacity='0.9' stroke='%236366f1' stroke-width='1.25'/%3E%3Cpath d='M12.5 5L15 7.5 16.5 6 14 3.5 12.5 5z' fill='%238b5cf6' stroke='%236366f1' stroke-width='0.75'/%3E%3C/svg%3E") 3 17, text;
+  
+  /* Elegant Joins settings cursor */
+  --cursor-settings: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='7' fill='%23f4f4f5' fill-opacity='0.7' stroke='%2371717a' stroke-width='1'/%3E%3Ccircle cx='10' cy='10' r='2.5' fill='%236366f1'/%3E%3Cpath d='M10 3v2M10 15v2M3 10h2M15 10h2M5.05 5.05l1.4 1.4M13.55 13.55l1.4 1.4M5.05 14.95l1.4-1.4M13.55 6.45l1.4-1.4' stroke='%236366f1' stroke-width='1.25' stroke-linecap='round'/%3E%3C/svg%3E") 10 10, pointer;
+  
+  /* Elegant Joins help cursor */
+  --cursor-help: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='8' fill='%236366f1' fill-opacity='0.85'/%3E%3Cpath d='M8 8c0-1.5.8-2 2-2s2 .5 2 1.5c0 1-1 1.5-2 2' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='10' cy='14' r='1' fill='white'/%3E%3C/svg%3E") 10 10, help;
+
+  /* Elegant Joins data type cursor - column/schema icon (represents data structure) */
+  --cursor-datatype: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Crect x='3' y='2' width='14' height='16' rx='2' fill='%23dbeafe' fill-opacity='0.9' stroke='%233b82f6' stroke-width='1.25'/%3E%3Cline x1='3' y1='6' x2='17' y2='6' stroke='%233b82f6' stroke-width='1'/%3E%3Cline x1='10' y1='6' x2='10' y2='18' stroke='%233b82f6' stroke-width='0.75' stroke-opacity='0.5'/%3E%3Crect x='4.5' y='8' width='4' height='2' rx='0.5' fill='%233b82f6' fill-opacity='0.6'/%3E%3Crect x='4.5' y='12' width='4' height='2' rx='0.5' fill='%233b82f6' fill-opacity='0.4'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Elegant Joins key cursor - golden star/badge (represents importance/identifier - psychologically associated with value and identity) */
+  --cursor-key: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cpath d='M11 2l2.5 5.5L19 8.5l-4 4.5 1 6-5-3-5 3 1-6-4-4.5 5.5-1z' fill='%23fef3c7' fill-opacity='0.95' stroke='%23f59e0b' stroke-width='1.25' stroke-linejoin='round'/%3E%3Ccircle cx='11' cy='10' r='2.5' fill='%23f59e0b' fill-opacity='0.8'/%3E%3C/svg%3E") 11 11, pointer;
+
+  /* Menu/hamburger cursor - three horizontal lines */
+  --cursor-menu: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Crect x='2' y='2' width='16' height='16' rx='3' fill='%23f4f4f5' fill-opacity='0.9' stroke='%236366f1' stroke-width='1.25'/%3E%3Cline x1='5' y1='6' x2='15' y2='6' stroke='%236366f1' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='5' y1='10' x2='15' y2='10' stroke='%238b5cf6' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='5' y1='14' x2='15' y2='14' stroke='%236366f1' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Save cursor - modern floppy disk */
+  --cursor-save: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Crect x='2' y='2' width='16' height='16' rx='2' fill='%23dbeafe' fill-opacity='0.9' stroke='%233b82f6' stroke-width='1.25'/%3E%3Crect x='5' y='2' width='10' height='6' fill='%23f4f4f5' stroke='%233b82f6' stroke-width='0.75'/%3E%3Crect x='11' y='3' width='3' height='4' fill='%233b82f6' fill-opacity='0.6'/%3E%3Crect x='5' y='11' width='10' height='5' rx='1' fill='%233b82f6' fill-opacity='0.3' stroke='%233b82f6' stroke-width='0.5'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Open/folder cursor - modern folder icon */
+  --cursor-folder: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M2 5c0-1.1.9-2 2-2h4l2 2h6c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5z' fill='%23fef3c7' fill-opacity='0.95' stroke='%23f59e0b' stroke-width='1.25'/%3E%3Cpath d='M2 7h16v8c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V7z' fill='%23fcd34d' fill-opacity='0.8'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Upload cursor - arrow pointing up into box */
+  --cursor-upload: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Crect x='2' y='8' width='16' height='10' rx='2' fill='%23dbeafe' fill-opacity='0.8' stroke='%236366f1' stroke-width='1.25'/%3E%3Cpath d='M10 4l4 4h-3v5h-2V8H6l4-4z' fill='%238b5cf6' stroke='%236366f1' stroke-width='0.75' stroke-linejoin='round'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Run/play cursor - play button triangle */
+  --cursor-run: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='8' fill='%23dbeafe' fill-opacity='0.9' stroke='%233b82f6' stroke-width='1.25'/%3E%3Cpath d='M8 6l6 4-6 4V6z' fill='%238b5cf6' stroke='%236366f1' stroke-width='0.75' stroke-linejoin='round'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Theme/sun cursor - sun icon */
+  --cursor-theme-light: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='4' fill='%23fcd34d' stroke='%23f59e0b' stroke-width='1.25'/%3E%3Cpath d='M10 2v2M10 16v2M2 10h2M16 10h2M4.93 4.93l1.41 1.41M13.66 13.66l1.41 1.41M4.93 15.07l1.41-1.41M13.66 6.34l1.41-1.41' stroke='%23f59e0b' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Theme/moon cursor - moon icon */
+  --cursor-theme-dark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='M17 10.5a7 7 0 01-9.9 6.4A7 7 0 0110.5 3 5.5 5.5 0 0017 10.5z' fill='%236366f1' fill-opacity='0.85' stroke='%234f46e5' stroke-width='1.25'/%3E%3Ccircle cx='14' cy='6' r='1' fill='%23c7d2fe'/%3E%3Ccircle cx='16' cy='9' r='0.5' fill='%23c7d2fe'/%3E%3C/svg%3E") 10 10, pointer;
+
+  /* Canvas cursor - grid/layout icon */
+  --cursor-canvas: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Crect x='2' y='2' width='7' height='7' rx='1.5' fill='%23dbeafe' fill-opacity='0.9' stroke='%233b82f6' stroke-width='1.25'/%3E%3Crect x='11' y='2' width='7' height='7' rx='1.5' fill='%23e0e7ff' fill-opacity='0.9' stroke='%236366f1' stroke-width='1.25'/%3E%3Crect x='2' y='11' width='7' height='7' rx='1.5' fill='%23e0e7ff' fill-opacity='0.9' stroke='%236366f1' stroke-width='1.25'/%3E%3Crect x='11' y='11' width='7' height='7' rx='1.5' fill='%23dbeafe' fill-opacity='0.9' stroke='%233b82f6' stroke-width='1.25'/%3E%3C/svg%3E") 10 10, pointer;
+}
+
+/* ==================== CURSOR UTILITY CLASSES ==================== */
+/* Custom cursor classes with !important to ensure they override defaults */
+
+/* Draggable elements - table nodes, items that can be moved */
+.cursor-grab-custom {
+  cursor: var(--cursor-grab) !important;
+}
+
+.cursor-grab-custom:active,
+.cursor-grabbing-custom {
+  cursor: var(--cursor-grabbing) !important;
+}
+
+/* Connection handles - for creating relationships */
+.cursor-link {
+  cursor: var(--cursor-link) !important;
+}
+
+/* Canvas panning */
+.cursor-pan {
+  cursor: var(--cursor-pan) !important;
+}
+
+/* Zoom controls */
+.cursor-zoom-in-custom {
+  cursor: var(--cursor-zoom-in) !important;
+}
+
+.cursor-zoom-out-custom {
+  cursor: var(--cursor-zoom-out) !important;
+}
+
+/* Copy action */
+.cursor-copy-custom {
+  cursor: var(--cursor-copy) !important;
+}
+
+/* Delete/destructive action */
+.cursor-delete {
+  cursor: var(--cursor-delete) !important;
+}
+
+/* Edit/rename action */
+.cursor-edit {
+  cursor: var(--cursor-edit) !important;
+}
+
+/* Settings/configure action */
+.cursor-settings {
+  cursor: var(--cursor-settings) !important;
+}
+
+/* Help/info cursor */
+.cursor-help-custom {
+  cursor: var(--cursor-help) !important;
+}
+
+/* Cell selection cursor for data grids */
+.cursor-cell-custom {
+  cursor: cell !important;
+}
+
+/* Data type selector - for changing column types */
+.cursor-datatype {
+  cursor: var(--cursor-datatype) !important;
+}
+
+/* Key field selector - for marking fields as keys */
+.cursor-key {
+  cursor: var(--cursor-key) !important;
+}
+
+/* Menu bar button cursors */
+.cursor-menu {
+  cursor: var(--cursor-menu) !important;
+}
+
+.cursor-save {
+  cursor: var(--cursor-save) !important;
+}
+
+.cursor-folder {
+  cursor: var(--cursor-folder) !important;
+}
+
+.cursor-upload {
+  cursor: var(--cursor-upload) !important;
+}
+
+.cursor-run {
+  cursor: var(--cursor-run) !important;
+}
+
+.cursor-theme-light {
+  cursor: var(--cursor-theme-light) !important;
+}
+
+.cursor-theme-dark {
+  cursor: var(--cursor-theme-dark) !important;
+}
+
+.cursor-canvas {
+  cursor: var(--cursor-canvas) !important;
+}
+
+/* Select/Dropdown trigger hover styles */
+[role="combobox"],
+[data-radix-collection-item] {
+  @apply transition-all duration-100;
+}
+
+[role="combobox"]:hover {
+  @apply border-zinc-400 dark:border-zinc-500 bg-zinc-50 dark:bg-zinc-800;
+}
+
+/* Select option hover */
+[role="option"]:hover {
+  @apply bg-zinc-100 dark:bg-zinc-800;
+}
+
+/* Tab trigger hover styles */
+[role="tab"] {
+  @apply transition-all duration-100 cursor-pointer;
+}
+
+[role="tab"]:hover:not([data-state="active"]) {
+  @apply bg-zinc-100 dark:bg-zinc-800;
+}
+
+/* Checkbox/Switch hover styles */
+[role="checkbox"]:hover,
+[role="switch"]:hover {
+  @apply ring-2 ring-primary/20;
+}
+
+/* Dialog close button */
+[data-radix-dialog-close]:hover {
+  @apply bg-zinc-100 dark:bg-zinc-800;
+}
+
+/* ==================== REACT FLOW CURSOR OVERRIDES ==================== */
+/* Custom cursors for React Flow canvas and controls */
+
+/* Canvas panning - default pan cursor, grabbing while actively panning */
+.react-flow__pane {
+  cursor: var(--cursor-pan) !important;
+}
+
+.react-flow__pane:active {
+  cursor: var(--cursor-grabbing) !important;
+}
+
+/* Zoom controls */
+.react-flow__controls-button {
+  cursor: pointer !important;
+}
+
+.react-flow__controls-zoomin {
+  cursor: var(--cursor-zoom-in) !important;
+}
+
+.react-flow__controls-zoomout {
+  cursor: var(--cursor-zoom-out) !important;
+}
+
+/* Node selection - grab when hovering, grabbing when dragging */
+.react-flow__node {
+  cursor: var(--cursor-grab) !important;
+}
+
+.react-flow__node.dragging,
+.react-flow__node:active {
+  cursor: var(--cursor-grabbing) !important;
+}
+
+/* Edge connections - pointer for clickable */
+.react-flow__edge {
+  cursor: pointer !important;
+}
+
+/* Edge path - pointer for hovering over connection lines */
+.react-flow__edge-path {
+  cursor: pointer !important;
+}
+
+/* Connection line (while creating a connection) */
+.react-flow__connection {
+  cursor: var(--cursor-link) !important;
+}
+
+/* Connection handles */
+.react-flow__handle {
+  cursor: var(--cursor-link) !important;
+}
+
+/* Resize handles */
+.react-flow__resize-control {
+  cursor: nwse-resize !important;
+}
+
+/* Selection box */
+.react-flow__selection {
+  cursor: move !important;
+}
+
+/* MiniMap panning */
+.react-flow__minimap {
+  cursor: pointer !important;
+}

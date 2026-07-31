@@ -1,0 +1,7 @@
+order_id,customer_id,product,amount,ordered_on
+1001,1,Analytical Engine,2400.50,2024-04-02
+1002,1,Punch Cards,15.00,2024-04-05
+1003,2,Compiler License,899.99,2024-04-11
+1004,3,Orbital Calculator,1250.00,2024-04-15
+1005,99,Ghost Order,10.00,2024-04-20
+1006,2,Debugging Kit,45.25,2024-05-01

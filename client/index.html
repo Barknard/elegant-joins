@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- No maximum-scale lock: pinch-zoom is an accessibility right, and the previous
+         `maximum-scale=1` blocked it outright on every touch device. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)" />
+
+    <title>Elegant Joins — visual data studio</title>
+    <meta
+      name="description"
+      content="Combine CSV and Excel files by drawing the connections between them. Runs entirely in your browser — your data never leaves your computer."
+    />
+
+    <meta property="og:title" content="Elegant Joins — visual data studio" />
+    <meta
+      property="og:description"
+      content="Combine CSV and Excel files by drawing the connections between them. Runs entirely in your browser."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./opengraph.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Elegant Joins" />
+    <meta name="twitter:description" content="Visual data connections for everyone." />
+
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.json" />
+
+    <!-- Fonts are vendored into public/fonts (see tools/fetch-fonts.py). No CDN link:
+         it would leak every visitor to a third party and break the offline promise. -->
+    <link rel="stylesheet" href="./fonts/fonts.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <noscript>
+      <div style="max-width:42rem;margin:4rem auto;padding:0 1.5rem;font-family:system-ui,sans-serif;line-height:1.6">
+        <h1 style="font-size:1.5rem">Elegant Joins needs JavaScript</h1>
+        <p>
+          This app reads and joins your spreadsheets entirely inside your browser, so all
+          of the work happens in JavaScript. Please enable it and reload the page.
+        </p>
+      </div>
+    </noscript>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

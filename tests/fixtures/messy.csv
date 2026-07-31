@@ -1,0 +1,6 @@
+code,description,notes,qty,ratio
+007,"Bond, James","He said ""hello""",3,0.5
+008,"Multi
+line value",plain note,12,1.25
+0800,"Trailing spaces  ",,0,
+9,Normal row,another note,7,2.0
