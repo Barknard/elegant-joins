@@ -60,7 +60,10 @@ self.addEventListener("fetch", (event) => {
   // Navigations: network-first so a deploy is picked up on the next online load.
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
+      // cache:'no-cache' revalidates with the server rather than accepting the browser's
+      // HTTP-cached copy. GitHub Pages sends index.html with a ten-minute max-age, so a
+      // plain fetch here is "network-first" in name only and keeps serving the old page.
+      fetch(request.url, { cache: "no-cache", credentials: "same-origin" })
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put("./index.html", copy));
