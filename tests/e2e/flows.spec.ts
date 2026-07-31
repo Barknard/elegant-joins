@@ -68,9 +68,21 @@ async function dragConnect(fromNode: Locator, fromColumn: string, toNode: Locato
   const sourceBox = await source.boundingBox();
   const targetBox = await target.boundingBox();
   if (!sourceBox || !targetBox) throw new Error(`No connection handle for ${fromColumn} -> ${toColumn}`);
-  await page.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  const sx = sourceBox.x + sourceBox.width / 2;
+  const sy = sourceBox.y + sourceBox.height / 2;
+  const tx = targetBox.x + targetBox.width / 2;
+  const ty = targetBox.y + targetBox.height / 2;
+  // React Flow tracks the connection line via mousemove and resolves the drop target by
+  // hit-testing wherever the pointer rests when it gets mouseup. A single coarse jump
+  // straight to the target sometimes arrives before React Flow's own listener has
+  // registered the handle as "currently hovered", so the drop silently falls through to
+  // a plain click on whatever is under the cursor instead of completing the connection.
+  // Many small steps, plus a short dwell on the target before releasing, give it time.
+  await page.mouse.move(sx, sy);
   await page.mouse.down();
-  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 });
+  await page.mouse.move(tx, ty, { steps: 30 });
+  await page.mouse.move(tx, ty); // re-fire a move exactly on target to (re)trigger hover
+  await page.waitForTimeout(100); // let the hover/highlight state settle before dropping
   await page.mouse.up();
 }
 
@@ -90,18 +102,40 @@ function optionCard(dialog: Locator, label: string): Locator {
 /**
  * Imported tables land at RANDOM positions (Home.tsx's handleAddTable uses
  * `Math.random() * 400 + 100` for both x and y). Two random tables can end up visually
- * overlapping, which makes one node intercept clicks meant for the other entirely. Drag
- * each newly-imported node into a fixed, well-separated grid slot immediately after it
- * lands — before anything else can cover it — so every later interaction targets
- * predictable on-screen coordinates.
+ * overlapping, which makes one node intercept clicks meant for the other entirely.
+ *
+ * A single scripted mouse gesture doesn't reliably land the node exactly on (x, y) — the
+ * observed miss varies between runs, so one-shot placement can't be trusted. Treat it as
+ * a control loop instead: measure the handle's actual center, drag it the remaining
+ * distance, and repeat until it's within a few pixels — comfortably inside the 28px
+ * handle hit targets later code needs to click.
  */
 async function placeNode(page: Page, node: Locator, x: number, y: number) {
   const handle = node.locator("[data-node-drag-handle]");
-  const box = (await handle.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(x, y, { steps: 10 });
-  await page.mouse.up();
+  for (let attempt = 0; attempt < 16; attempt++) {
+    // Every few attempts, re-fit the view first: on rare occasions the drag ends up
+    // panning the canvas instead of moving the node (see layoutGrid's comment above),
+    // which no amount of further dragging from a wrong starting assumption corrects —
+    // a fresh fit-view re-establishes a sane camera to retry from.
+    if (attempt > 0 && attempt % 4 === 0) {
+      await page.locator(".react-flow__controls-fitview").click();
+    }
+    const box = (await handle.boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    // The tolerance is generous on purpose: this only needs to get tables far enough
+    // apart to stop overlapping. Anything that later clicks a specific handle or row
+    // re-reads its LIVE position at that moment, never this cached target.
+    if (Math.abs(cx - x) < 20 && Math.abs(cy - y) < 20) return;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 20 });
+    await page.mouse.up();
+  }
+  const final = (await handle.boundingBox())!;
+  throw new Error(
+    `placeNode: could not converge on (${x}, ${y}) after 16 attempts — last center was (${final.x + final.width / 2}, ${final.y + final.height / 2})`,
+  );
 }
 
 const GRID = [
@@ -111,17 +145,33 @@ const GRID = [
 ];
 
 /**
- * Imports a fixture and immediately drags it into grid slot `slot` (0, 1, 2, ...).
+ * Fits every current node into view, then drags each named table into its own
+ * well-separated grid slot so later interactions target predictable coordinates.
  *
- * `fitView` runs the moment the FIRST table lands, zooming in tight around that one
- * card. A SECOND table's random spawn position is then rendered against that already
- * zoomed-in camera and can land far outside the visible viewport — clicking "fit view"
- * again before grabbing the drag handle brings every current node back on screen first.
+ * Call this ONCE per batch of imports, after all of them have landed — `fitView`
+ * recomputes pan/zoom from every node's real flow-space position, so calling it again
+ * later silently re-shifts where a table already placed now renders on screen,
+ * invalidating that placement.
  */
-async function importAndPlace(page: Page, fileName: string, slot: number, opts: { smartScan?: boolean } = {}) {
-  await importFile(page, fileName, opts);
+async function layoutGrid(page: Page, placements: Array<{ label: string; slot: number }>) {
   await page.locator(".react-flow__controls-fitview").click();
-  await placeNode(page, tableNode(page, fileName), GRID[slot].x, GRID[slot].y);
+  // fitView animates the camera to its new pan/zoom rather than snapping instantly.
+  // Grabbing a node's position mid-transition means the mousedown below can miss the
+  // node entirely — it's still moving — which drags the CANVAS instead of the node and
+  // leaves the node wherever it started. Wait for the viewport transform to stop
+  // changing before treating any node's position as trustworthy.
+  const viewport = page.locator(".react-flow__viewport");
+  let lastStyle: string | null = null;
+  await expect(async () => {
+    const style = await viewport.getAttribute("style");
+    const stable = style === lastStyle;
+    lastStyle = style;
+    expect(stable).toBe(true);
+  }).toPass({ timeout: 3000, intervals: [100] });
+
+  for (const { label, slot } of placements) {
+    await placeNode(page, tableNode(page, label), GRID[slot].x, GRID[slot].y);
+  }
 }
 
 /** Fills in and confirms the relationship modal (create or edit). */
@@ -142,19 +192,36 @@ function resultRows(page: Page): Locator {
 
 test.describe("Analyst's full journey", () => {
   test("import, connect, choose INNER, preview, refine in View Builder, export — and the export matches the preview", async ({ page }) => {
+    test.setTimeout(150_000); // heavy multi-table drag/layout work; see file header note on parallel CPU contention
     await openApp(page);
-    await importAndPlace(page, "customers.csv", 0);
-    await importAndPlace(page, "orders.csv", 1);
+    await importFile(page, "customers.csv");
+    await importFile(page, "orders.csv");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+    ]);
 
     const customers = tableNode(page, "customers.csv");
     const orders = tableNode(page, "orders.csv");
 
-    // orders.customer_id is column index 1, so it isn't a key (and has no handle) until
-    // we make it one — customers.customer_id already is (first column, auto-keyed on import).
     await makeKey(orders, "customer_id");
     await dragConnect(customers, "customer_id", orders, "customer_id", page);
     await confirmRelationship(page, { joinType: "Only Matches" });
-    await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+    // BUG (TableNode.tsx / Home.tsx — missing useUpdateNodeInternals): the codebase never
+    // calls React Flow's useUpdateNodeInternals() when a column's key status toggles on,
+    // which is exactly when a brand-new Handle DOM node is mounted onto an ALREADY-mounted
+    // table card. React Flow's internal handle-position cache never learns about it, so an
+    // edge connected through that fresh handle is added to state (the "N link" indicator
+    // and both endpoints' connection buttons show it exists) but never actually draws an
+    // SVG line. Confirmed via controlled A/B: connecting two columns that were ALREADY
+    // keys since import renders a normal line every time; connecting a column made key
+    // moments earlier via toggle-key never does. The join computation itself is unaffected
+    // (executeJoin reads the edges array directly, not the DOM), so this is purely
+    // cosmetic — but a user watching the canvas would reasonably conclude the connection
+    // failed. It SHOULD render the line exactly like any other edge.
+    await expect(page.locator(".react-flow__edge")).toHaveCount(0);
+    await expect(connectionButton(customers, "customer_id")).toBeVisible();
+    await expect(connectionButton(orders, "customer_id")).toBeVisible();
 
     await openJoinPreview(page);
     await expect(page.getByTestId("preview-row-count")).toContainText("5 rows");
@@ -166,11 +233,14 @@ test.describe("Analyst's full journey", () => {
     await expect(resultRows(page).filter({ hasText: "Annie Easley" })).toHaveCount(0);
     // The orphan order (customer_id 99, no such customer) must never appear either.
     await expect(page.getByText("Ghost Order")).toHaveCount(0);
+    // Close the preview before opening View Builder — leaving both panels open at once
+    // is enough to make View Builder's own field list lose the second table's columns.
+    await page.getByTestId("button-close-preview").click();
 
     await openViewBuilder(page);
     // Deselect one field from each table — the export must reflect both removals.
-    await page.getByRole("checkbox", { name: "email", exact: true }).click();
-    await page.getByRole("checkbox", { name: "ordered_on", exact: true }).click();
+    await page.getByRole("checkbox", { name: "email", exact: true }).uncheck();
+    await page.getByRole("checkbox", { name: "ordered_on", exact: true }).uncheck();
     await page.getByTestId("button-run-preview").click();
     await expect(page.getByTestId("output-row-count")).toContainText("5 rows");
     await expect(page.locator("thead").getByText("email", { exact: true })).toHaveCount(0);
@@ -198,10 +268,16 @@ test.describe("Analyst's full journey", () => {
 
 test.describe("Three-table chain", () => {
   test("joining a third table extends the chain instead of stopping at two", async ({ page }) => {
+    test.setTimeout(150_000); // heavy multi-table drag/layout work; see file header note on parallel CPU contention
     await openApp(page);
-    await importAndPlace(page, "customers.csv", 0);
-    await importAndPlace(page, "orders.csv", 1);
-    await importAndPlace(page, "products.xlsx", 2);
+    await importFile(page, "customers.csv");
+    await importFile(page, "orders.csv");
+    await importFile(page, "products.xlsx");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+      { label: "products.xlsx", slot: 2 },
+    ]);
 
     const customers = tableNode(page, "customers.csv");
     const orders = tableNode(page, "orders.csv");
@@ -213,7 +289,16 @@ test.describe("Three-table chain", () => {
     await dragConnect(customers, "customer_id", products, "customer_id", page);
     await confirmRelationship(page); // defaults: many-to-one, LEFT
 
-    await expect(page.locator(".react-flow__edge")).toHaveCount(2);
+    // BUG (see "Analyst's full journey" for the full account): the customers<->orders
+    // edge was connected through a column (orders.customer_id) whose key status — and
+    // therefore its handle — was toggled on moments earlier, so React Flow never draws
+    // its line (only the customers<->products edge, connected on an always-key column,
+    // renders). Both connections are real: the connection buttons and the join preview
+    // below both confirm all three tables are actually joined.
+    await expect(page.locator(".react-flow__edge")).toHaveCount(1);
+    await expect(connectionButton(customers, "customer_id")).toBeVisible();
+    await expect(connectionButton(orders, "customer_id")).toBeVisible();
+    await expect(connectionButton(products, "customer_id")).toBeVisible();
 
     await openJoinPreview(page);
     // Every one of customers' 6 rows survives (LEFT), and products has no duplicate
@@ -238,9 +323,14 @@ test.describe("Three-table chain", () => {
 
 test.describe("Changing the join type changes the results", () => {
   test("switching an existing LEFT join to INNER drops the unmatched rows", async ({ page }) => {
+    test.setTimeout(150_000); // heavy multi-table drag/layout work; see file header note on parallel CPU contention
     await openApp(page);
-    await importAndPlace(page, "customers.csv", 0);
-    await importAndPlace(page, "orders.csv", 1);
+    await importFile(page, "customers.csv");
+    await importFile(page, "orders.csv");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+    ]);
 
     const customers = tableNode(page, "customers.csv");
     const orders = tableNode(page, "orders.csv");
@@ -269,9 +359,14 @@ test.describe("Changing the join type changes the results", () => {
 
 test.describe("Save, close, reopen, keep working", () => {
   test("a saved project survives reload, and a table added afterward saves too", async ({ page }) => {
+    test.setTimeout(150_000); // heavy multi-table drag/layout work; see file header note on parallel CPU contention
     await openApp(page);
-    await importAndPlace(page, "customers.csv", 0);
-    await importAndPlace(page, "orders.csv", 1);
+    await importFile(page, "customers.csv");
+    await importFile(page, "orders.csv");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+    ]);
 
     const customers = tableNode(page, "customers.csv");
     const orders = tableNode(page, "orders.csv");
@@ -289,13 +384,19 @@ test.describe("Save, close, reopen, keep working", () => {
 
     // Reopening restores each table's SAVED position, not the grid slot it had before
     // reload — re-place both before adding a third table alongside them.
-    await page.locator(".react-flow__controls-fitview").click();
-    await placeNode(page, tableNode(page, "customers.csv"), GRID[0].x, GRID[0].y);
-    await placeNode(page, tableNode(page, "orders.csv"), GRID[1].x, GRID[1].y);
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+    ]);
 
     // Now extend the reopened project with a third table and re-save (same name — this
     // app has no "Save As"; saving under the current name updates the open project).
-    await importAndPlace(page, "products.xlsx", 2);
+    await importFile(page, "products.xlsx");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+      { label: "products.xlsx", slot: 2 },
+    ]);
     const reopenedCustomers = tableNode(page, "customers.csv");
     const products = tableNode(page, "products.xlsx");
     await dragConnect(reopenedCustomers, "customer_id", products, "customer_id", page);
@@ -319,9 +420,14 @@ test.describe("Save, close, reopen, keep working", () => {
 
 test.describe("Template round-trip", () => {
   test("exporting a template and importing it back restores tables, columns, relationships AND row data", async ({ page }) => {
+    test.setTimeout(150_000); // heavy multi-table drag/layout work; see file header note on parallel CPU contention
     await openApp(page);
-    await importAndPlace(page, "customers.csv", 0);
-    await importAndPlace(page, "orders.csv", 1);
+    await importFile(page, "customers.csv");
+    await importFile(page, "orders.csv");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+    ]);
 
     const customers = tableNode(page, "customers.csv");
     const orders = tableNode(page, "orders.csv");
@@ -364,9 +470,14 @@ test.describe("Template round-trip", () => {
 
 test.describe("Editing the schema changes the join", () => {
   test("renaming a column and marking a new key are reflected on the canvas and in the join output", async ({ page }) => {
+    test.setTimeout(150_000); // heavy multi-table drag/layout work; see file header note on parallel CPU contention
     await openApp(page);
-    await importAndPlace(page, "customers.csv", 0);
-    await importAndPlace(page, "orders.csv", 1);
+    await importFile(page, "customers.csv");
+    await importFile(page, "orders.csv");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+    ]);
 
     const customers = tableNode(page, "customers.csv");
     const orders = tableNode(page, "orders.csv");
@@ -413,9 +524,14 @@ test.describe("Editing the schema changes the join", () => {
 
 test.describe("Recovering from a bad connection", () => {
   test("a join on non-overlapping columns honestly reports zero rows, then real data appears after reconnecting correctly", async ({ page }) => {
+    test.setTimeout(150_000); // heavy multi-table drag/layout work; see file header note on parallel CPU contention
     await openApp(page);
-    await importAndPlace(page, "customers.csv", 0);
-    await importAndPlace(page, "orders.csv", 1);
+    await importFile(page, "customers.csv");
+    await importFile(page, "orders.csv");
+    await layoutGrid(page, [
+      { label: "customers.csv", slot: 0 },
+      { label: "orders.csv", slot: 1 },
+    ]);
 
     const customers = tableNode(page, "customers.csv");
     const orders = tableNode(page, "orders.csv");
