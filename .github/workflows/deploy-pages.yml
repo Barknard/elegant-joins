@@ -12,52 +12,89 @@ permissions:
   pages: write
   id-token: write
 
-# One deployment at a time; never cancel one mid-flight.
 concurrency:
   group: pages
   cancel-in-progress: false
 
+# Everything used to run as ONE serial job — install, type-check, unit, browser install,
+# desktop e2e, deployed-path e2e, then the serial mobile suite. That took 14 minutes,
+# and a failure anywhere meant no deploy and no signal about the rest. These jobs run in
+# parallel instead, and the slow suites are sharded, so wall-clock is roughly the longest
+# single shard rather than the sum of everything.
+
 jobs:
-  test:
+  check:
+    name: Types and unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
+        with: { node-version: '20', cache: npm }
       - run: npm ci
-      - name: Type-check
-        run: npm run check
-      - name: Unit tests (join engine, parsing, storage, exports)
-        run: npm run test:unit
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-      - name: End-to-end tests
-        run: npx playwright test --project=chromium
+      - run: npm run check
+      - run: npm run test:unit
 
-      # Separate project: builds with the real /elegant-joins/ base and serves it at
-      # that sub-path. The root-served suite cannot catch base-path bugs — the first
-      # deploy showed a 404 to every visitor while all other tests passed.
-      - name: Deployed-path smoke tests
-        run: npx playwright test --project=pages-base
-
-      # Serial on purpose: importing and joining real files on a React Flow canvas at a
-      # 390px viewport is slow enough that parallel workers starve each other into
-      # timing flakes which pass individually.
-      - name: Phone-viewport tests
-        run: npx playwright test --project=mobile --workers=1
-      - name: Upload Playwright report on failure
+  e2e-desktop:
+    name: Desktop e2e (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --project=chromium --shard=${{ matrix.shard }}/2
+      - uses: actions/upload-artifact@v4
         if: failure()
-        uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: report-desktop-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 7
+
+  e2e-deployed-path:
+    name: Deployed /elegant-joins/ path
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # Small and fast, but the only thing that can catch a base-path bug: the first
+      # deploy of this app served a 404 to every visitor while all other tests passed.
+      - run: npx playwright test --project=pages-base
+
+  e2e-mobile:
+    name: Phone viewport (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # workers=1 WITHIN a shard: this canvas is CPU-bound at 390px and parallel workers
+      # starve each other into timing flakes. Sharding gives back the parallelism across
+      # machines instead, without the contention.
+      - run: npx playwright test --project=mobile --workers=1 --shard=${{ matrix.shard }}/2
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: report-mobile-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 7
 
   deploy:
-    # Never publish a build that failed its tests.
-    needs: test
+    # Never publish something that failed its tests.
+    needs: [check, e2e-desktop, e2e-deployed-path, e2e-mobile]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: github-pages
@@ -66,15 +103,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
+        with: { node-version: '20', cache: npm }
       - run: npm ci
       - name: Build (base path /elegant-joins/)
         run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+        with: { path: dist }
       - id: deployment
         uses: actions/deploy-pages@v4
