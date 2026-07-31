@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import * as XLSX from "xlsx";
 import { expect, test } from "@playwright/test";
 import { importFile, openApp, openJoinPreview, openProjectDialog, openViewBuilder, projectRow, saveProject } from "./helpers";
 
@@ -115,6 +117,34 @@ test.describe("View builder", () => {
     await page.getByTestId("button-export-excel").click();
     const file = await download;
     expect(file.suggestedFilename()).toMatch(/\.xlsx$/);
+
+    // A correct filename is not proof of a valid workbook — read it back and check the
+    // real joined values are in there.
+    const path = await file.path();
+    const wb = XLSX.read(readFileSync(path!), { type: "buffer" });
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]]);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(JSON.stringify(rows)).toContain("Analytical Engine");
+  });
+
+  test("the exported CSV contains the joined data, properly escaped", async ({ page }) => {
+    await twoJoinedTables(page);
+    await openViewBuilder(page);
+    await page.getByTestId("button-run-preview").click();
+    await page.getByRole("tab", { name: "Export" }).click();
+
+    const download = page.waitForEvent("download");
+    await page.getByTestId("button-export-csv").click();
+    const csv = readFileSync((await (await download).path())!, "utf-8");
+
+    expect(csv).toContain("Analytical Engine");
+    // Header + at least one data row.
+    expect(csv.trim().split(/\r?\n/).length).toBeGreaterThan(1);
+    // Every line must have balanced quotes, or a value containing a comma or quote has
+    // corrupted the column alignment.
+    for (const line of csv.trim().split(/\r?\n/)) {
+      expect((line.match(/"/g) ?? []).length % 2, `unbalanced quotes: ${line}`).toBe(0);
+    }
   });
 
   test("export buttons stay disabled until a run has happened", async ({ page }) => {
