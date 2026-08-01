@@ -97,10 +97,22 @@ export async function openAddSource(page: Page) {
   const dialogOpen = page.getByTestId("button-csv-upload");
 
   await page.getByTestId("button-add-source").click();
-  await dialogOpen.waitFor({ state: "visible", timeout: 2000 }).catch(async () => {
-    await page.getByTestId("button-add-source").click();
-    await dialogOpen.waitFor({ state: "visible", timeout: 8000 });
-  });
+
+  // Wait GENEROUSLY before concluding a second tap is needed. The floating button uses a
+  // two-step reveal on touch, but "the dialog hasn't appeared yet" looks identical to
+  // "the button only expanded" — and on a slow CI runner a dialog that is merely taking
+  // its time got a second click, which closed it again. Every mobile import failure on
+  // CI traced back to this. The wait only costs anything when the dialog genuinely
+  // never opens.
+  try {
+    await dialogOpen.waitFor({ state: "visible", timeout: 15000 });
+    return;
+  } catch {
+    /* genuinely still collapsed — take the second tap */
+  }
+
+  await page.getByTestId("button-add-source").click();
+  await dialogOpen.waitFor({ state: "visible", timeout: 15000 });
 }
 
 /**
@@ -152,9 +164,10 @@ async function tapToggle(page: Page, toggleTestId: string, revealTestId: string)
 
   // Wait properly rather than checking visibility immediately: these panels animate in,
   // so an instant check races the transition and reports "not open" for a panel that is
-  // opening — and the second tap would then toggle it straight back closed.
+  // opening — and the second tap would then toggle it straight back closed. Generous,
+  // because on a slow runner "still animating" and "needs another tap" look the same.
   try {
-    await reveal.waitFor({ state: "visible", timeout: 2500 });
+    await reveal.waitFor({ state: "visible", timeout: 15000 });
     return;
   } catch {
     // Genuinely still collapsed (the touch two-step reveal): tap again.
