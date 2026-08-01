@@ -13,7 +13,7 @@
  *   - ViewBuilderPanel's `generateOutputData`, which fabricated 5-12 random rows from
  *     column-name guesses and ignored both the selected fields and the real data.
  */
-import type { JoinType } from "@shared/schema";
+import type { DataType, JoinType } from "@shared/schema";
 import { normalizeJoinValue } from "../parse/tabular";
 
 export interface JoinTable {
@@ -21,7 +21,7 @@ export interface JoinTable {
   nodeId: string;
   /** Display name used to qualify output column names. */
   name: string;
-  columns: Array<{ columnId: string; name: string }>;
+  columns: Array<{ columnId: string; name: string; dataType?: DataType }>;
   rows: Record<string, unknown>[];
 }
 
@@ -42,6 +42,8 @@ export interface JoinResultColumn {
   table: string;
   /** Original column name. */
   column: string;
+  /** Carried through so filters and sorts can compare by meaning, not by string. */
+  dataType?: DataType;
 }
 
 export interface JoinResult {
@@ -166,6 +168,7 @@ export function executeJoin(
     key: qualify(seedNode.name, c.name),
     table: seedNode.name,
     column: c.name,
+    dataType: c.dataType,
   }));
 
   // Accumulator rows are keyed by qualified name from the start, so later steps never
@@ -206,6 +209,7 @@ export function executeJoin(
       key: qualify(incoming.name, c.name),
       table: incoming.name,
       column: c.name,
+      dataType: c.dataType,
     }));
 
     const index = indexBy(incoming.rows, incomingKeyColumn);

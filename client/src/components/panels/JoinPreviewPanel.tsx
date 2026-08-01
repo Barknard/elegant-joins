@@ -54,7 +54,10 @@ function buildJoinInputs(nodes: TableNodeType[], edges: Edge[]): { tables: JoinT
   const tables: JoinTable[] = nodes.map((node) => ({
     nodeId: node.id,
     name: node.data.displayLabel || node.data.label,
-    columns: node.data.columns.map((c) => ({ columnId: c.id, name: c.name })),
+    // dataType travels with the column: without it every filter and sort falls
+    // back to text, where `amount more than 100` is not a text operator and so
+    // silently matches every row.
+    columns: node.data.columns.map((c) => ({ columnId: c.id, name: c.name, dataType: c.type })),
     rows: node.data.rawData ?? [],
   }));
 

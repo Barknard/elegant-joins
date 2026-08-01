@@ -26,7 +26,9 @@ import {
   CheckCircle2,
   HelpCircle,
   RotateCcw,
-  ListOrdered
+  ListOrdered,
+  Plus,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TableNodeType } from '@/components/flow/TableNode';
@@ -34,7 +36,12 @@ import { Edge } from '@xyflow/react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
-import { executeJoin, type JoinTable, type JoinEdge as EngineJoinEdge, type JoinResult } from '@/lib/join/engine';
+import { executeJoin, type JoinTable, type JoinEdge as EngineJoinEdge, type JoinResult, type JoinResultColumn } from '@/lib/join/engine';
+import {
+  applyFilters, applySort, describeQuery,
+  OPERATORS_BY_TYPE, OPERATOR_LABELS, VALUELESS_OPERATORS,
+  type Filter, type FilterOperator, type Sort,
+} from '@/lib/join/query';
 import type { JoinType } from '@shared/schema';
 
 interface ViewBuilderPanelProps {
@@ -58,7 +65,10 @@ function buildJoinInputs(nodes: TableNodeType[], edges: Edge[]): { tables: JoinT
   const tables: JoinTable[] = nodes.map((node) => ({
     nodeId: node.id,
     name: node.data.displayLabel || node.data.label,
-    columns: node.data.columns.map((c) => ({ columnId: c.id, name: c.name })),
+    // dataType travels with the column: without it every filter and sort falls
+    // back to text, where `amount more than 100` is not a text operator and so
+    // silently matches every row.
+    columns: node.data.columns.map((c) => ({ columnId: c.id, name: c.name, dataType: c.type })),
     rows: node.data.rawData ?? [],
   }));
 
@@ -141,6 +151,8 @@ export function ViewBuilderPanel({ isOpen, onToggle, nodes, edges, runTriggered,
   const [buttonExpanded, setButtonExpanded] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useState<Filter[]>([]);
+  const [sorts, setSorts] = useState<Sort[]>([]);
 
   // Every column across every table on the canvas, paired with its collision-proof
   // selection key and the qualified engine key ("Table.column") the field maps to.
@@ -151,6 +163,11 @@ export function ViewBuilderPanel({ isOpen, onToggle, nodes, edges, runTriggered,
         return node.data.columns.map((col) => ({
           key: fieldKey(node.id, col.id),
           qualifiedKey: `${tableName}.${col.name}`,
+          // Carried so filters can offer type-appropriate operators (and compare
+          // numbers as numbers) BEFORE a run has produced any result columns.
+          table: tableName,
+          column: col.name,
+          dataType: col.type,
         }));
       }),
     [nodes]
@@ -173,6 +190,12 @@ export function ViewBuilderPanel({ isOpen, onToggle, nodes, edges, runTriggered,
       return next;
     });
   };
+
+  /** Result-shaped columns for the filter and sort editors, available before a run. */
+  const queryColumns: JoinResultColumn[] = useMemo(
+    () => allFields.map((f) => ({ key: f.qualifiedKey, table: f.table, column: f.column, dataType: f.dataType })),
+    [allFields]
+  );
 
   const selectedKeys = useMemo(() => {
     const chosen = allFields.filter((f) => selectedFields.has(f.key)).map((f) => f.qualifiedKey);
@@ -206,7 +229,23 @@ export function ViewBuilderPanel({ isOpen, onToggle, nodes, edges, runTriggered,
   const handleRun = () => {
     setActiveTab('preview');
     const { tables, joinEdges } = buildJoinInputs(nodes, edges);
-    const computed = executeJoin(tables, joinEdges, { selectedKeys });
+    const joined = executeJoin(tables, joinEdges, { selectedKeys });
+
+    // Join -> filter -> sort, the SQL order. Filtering can only reference columns the
+    // join has already produced, and sorting a set you are about to shrink is wasted work.
+    const filtered = applyFilters(joined.rows, joined.columns, filters);
+    const ordered = applySort(filtered, joined.columns, sorts);
+
+    const explanation = describeQuery(joined.columns, filters, sorts);
+    const removed = joined.rows.length - filtered.length;
+
+    const computed: JoinResult = {
+      ...joined,
+      rows: ordered,
+      totalRows: joined.totalRows - removed,
+      steps: [...joined.steps, ...explanation],
+    };
+
     setResult(computed);
     setHasRun(true);
     toast({
@@ -397,6 +436,172 @@ export function ViewBuilderPanel({ isOpen, onToggle, nodes, edges, runTriggered,
               </div>
               <ScrollArea className="flex-1 px-4 pb-4 touch-pan-y" onWheel={(e) => e.stopPropagation()}>
                 <div className="space-y-6">
+                  {/* ---------- FILTERS ---------- */}
+                  <div className="space-y-2" data-testid="filters-section">
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800" />
+                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-2">Filters</h3>
+                      <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800" />
+                    </div>
+
+                    {filters.length === 0 && (
+                      <p className="text-xs text-zinc-400 px-1">No filters &mdash; every row is included.</p>
+                    )}
+
+                    {filters.map((filter, i) => {
+                      const type = queryColumns.find((c) => c.key === filter.key)?.dataType ?? 'text';
+                      const operators = OPERATORS_BY_TYPE[type];
+                      const needsValue = !VALUELESS_OPERATORS.has(filter.operator);
+                      const update = (patch: Partial<Filter>) =>
+                        setFilters((prev) => prev.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+
+                      return (
+                        <div key={i} className="flex flex-wrap items-center gap-1.5" data-testid={`filter-row-${i}`}>
+                          <select
+                            className="h-8 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 min-w-[7rem] flex-1"
+                            value={filter.key}
+                            data-testid={`filter-field-${i}`}
+                            onChange={(e) => {
+                              // The chosen column decides which operators are legal, so an
+                              // operator carried over from another type has to be replaced.
+                              const nextType = queryColumns.find((c) => c.key === e.target.value)?.dataType ?? 'text';
+                              const nextOps = OPERATORS_BY_TYPE[nextType];
+                              update({
+                                key: e.target.value,
+                                operator: nextOps.includes(filter.operator) ? filter.operator : nextOps[0],
+                              });
+                            }}
+                          >
+                            {queryColumns.map((c) => (
+                              <option key={c.key} value={c.key}>{c.column}</option>
+                            ))}
+                          </select>
+
+                          <select
+                            className="h-8 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2"
+                            value={filter.operator}
+                            data-testid={`filter-operator-${i}`}
+                            onChange={(e) => update({ operator: e.target.value as FilterOperator })}
+                          >
+                            {operators.map((op) => (
+                              <option key={op} value={op}>{OPERATOR_LABELS[op]}</option>
+                            ))}
+                          </select>
+
+                          {needsValue && (
+                            <input
+                              className="h-8 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 w-24"
+                              type={type === 'date' ? 'date' : type === 'number' ? 'number' : 'text'}
+                              value={filter.value ?? ''}
+                              placeholder="value"
+                              data-testid={`filter-value-${i}`}
+                              onChange={(e) => update({ value: e.target.value })}
+                            />
+                          )}
+
+                          {needsValue && filter.operator === 'between' && (
+                            <input
+                              className="h-8 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 w-24"
+                              type={type === 'date' ? 'date' : 'number'}
+                              value={filter.value2 ?? ''}
+                              placeholder="and"
+                              data-testid={`filter-value2-${i}`}
+                              onChange={(e) => update({ value2: e.target.value })}
+                            />
+                          )}
+
+                          <button
+                            className="h-8 w-8 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            aria-label="Remove filter"
+                            data-testid={`filter-remove-${i}`}
+                            onClick={() => setFilters((prev) => prev.filter((_, j) => j !== i))}
+                          >
+                            <X className="w-3.5 h-3.5 mx-auto" />
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    <Button
+                      variant="outline" size="sm" className="h-8 text-xs w-full"
+                      data-testid="add-filter"
+                      disabled={queryColumns.length === 0}
+                      onClick={() =>
+                        setFilters((prev) => [
+                          ...prev,
+                          {
+                            key: queryColumns[0].key,
+                            operator: OPERATORS_BY_TYPE[queryColumns[0].dataType ?? 'text'][0],
+                            value: '',
+                          },
+                        ])
+                      }
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add filter
+                    </Button>
+                  </div>
+
+                  {/* ---------- SORT ---------- */}
+                  <div className="space-y-2" data-testid="sort-section">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800" />
+                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-2">Sort</h3>
+                      <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800" />
+                    </div>
+
+                    {sorts.length === 0 && (
+                      <p className="text-xs text-zinc-400 px-1">No sort &mdash; rows appear in join order.</p>
+                    )}
+
+                    {sorts.map((sort, i) => (
+                      <div key={i} className="flex items-center gap-1.5" data-testid={`sort-row-${i}`}>
+                        <select
+                          className="h-8 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 flex-1"
+                          value={sort.key}
+                          data-testid={`sort-field-${i}`}
+                          onChange={(e) =>
+                            setSorts((prev) => prev.map((sv, j) => (j === i ? { ...sv, key: e.target.value } : sv)))
+                          }
+                        >
+                          {queryColumns.map((c) => (
+                            <option key={c.key} value={c.key}>{c.column}</option>
+                          ))}
+                        </select>
+
+                        <select
+                          className="h-8 text-xs rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2"
+                          value={sort.direction}
+                          data-testid={`sort-direction-${i}`}
+                          onChange={(e) =>
+                            setSorts((prev) =>
+                              prev.map((sv, j) => (j === i ? { ...sv, direction: e.target.value as Sort['direction'] } : sv))
+                            )
+                          }
+                        >
+                          <option value="asc">A to Z / oldest first</option>
+                          <option value="desc">Z to A / newest first</option>
+                        </select>
+
+                        <button
+                          className="h-8 w-8 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          aria-label="Remove sort"
+                          data-testid={`sort-remove-${i}`}
+                          onClick={() => setSorts((prev) => prev.filter((_, j) => j !== i))}
+                        >
+                          <X className="w-3.5 h-3.5 mx-auto" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <Button
+                      variant="outline" size="sm" className="h-8 text-xs w-full"
+                      data-testid="add-sort"
+                      disabled={queryColumns.length === 0}
+                      onClick={() => setSorts((prev) => [...prev, { key: queryColumns[0].key, direction: 'asc' }])}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add sort
+                    </Button>
+                  </div>
                   {nodes.map(node => (
                     <div key={node.id} className="space-y-2">
                       <div className="flex items-center gap-2 mb-2 mt-2">
