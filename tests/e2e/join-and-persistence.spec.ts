@@ -157,7 +157,7 @@ test.describe("View builder", () => {
 });
 
 test.describe("Projects persist in the browser", () => {
-  test("saves a project and lists it in Open", async ({ page }) => {
+  test("saves a project and lists it in Open @smoke", async ({ page }) => {
     await openApp(page);
     await importFile(page, "customers.csv");
     await saveProject(page, "Persistence check");
@@ -247,7 +247,7 @@ test.describe("Projects persist in the browser", () => {
 });
 
 test.describe("Offline-capable shell", () => {
-  test("makes no third-party network requests", async ({ page }) => {
+  test("makes no third-party network requests @smoke", async ({ page }) => {
     const external: string[] = [];
     page.on("request", (r) => {
       const url = new URL(r.url());
@@ -261,7 +261,7 @@ test.describe("Offline-capable shell", () => {
     expect(external).toEqual([]);
   });
 
-  test("ships a manifest and icons for installation", async ({ page }) => {
+  test("ships a manifest and icons for installation @smoke", async ({ page }) => {
     await openApp(page);
     const manifest = await page.request.get("/manifest.json");
     expect(manifest.ok()).toBeTruthy();
@@ -275,7 +275,7 @@ test.describe("Offline-capable shell", () => {
     }
   });
 
-  test("allows pinch zoom", async ({ page }) => {
+  test("allows pinch zoom @smoke", async ({ page }) => {
     await openApp(page);
     const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
     // `maximum-scale=1` blocked zoom entirely — an accessibility failure.

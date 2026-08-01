@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { fixture, importFile, openAddSource, openApp } from "./helpers";
 
 test.describe("File import — real parsing", () => {
-  test("reads the actual columns and rows out of a CSV", async ({ page }) => {
+  test("reads the actual columns and rows out of a CSV @smoke", async ({ page }) => {
     await openApp(page);
     await openAddSource(page);
     await page.getByTestId("file-upload-input").setInputFiles(fixture("customers.csv"));
@@ -99,7 +99,7 @@ test.describe("File import — real parsing", () => {
     await expect(page.getByTestId("preview-columns")).toBeHidden();
   });
 
-  test("puts the table on the canvas with its real name", async ({ page }) => {
+  test("puts the table on the canvas with its real name @smoke", async ({ page }) => {
     await openApp(page);
     await importFile(page, "customers.csv");
     await expect(page.locator(".react-flow__node")).toHaveCount(1);
